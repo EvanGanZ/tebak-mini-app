@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1020">
+  <title>TEBAKDADU • Pilih Angka</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root { color-scheme: dark; --bg:#090e1b; --panel:#111a2d; --panel2:#17233b; --line:#273957; --text:#f4f7ff; --muted:#98a8c5; --blue:#3985ff; --cyan:#55d8f2; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:radial-gradient(ellipse at 50% -10%,#1b3764 0%,transparent 48%),var(--bg); color:var(--text); font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif; padding:calc(18px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
+    .wrap { width:min(100%,520px); margin:0 auto; }
+    .top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+    .brand { display:flex; align-items:center; gap:10px; }
+    .logo { width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(145deg,#3b8dff,#5b5ce2);box-shadow:0 8px 26px #246be655;font-size:22px; }
+    .brand strong { display:block;font-size:14px;letter-spacing:.12em; }
+    .brand small { display:block;color:var(--muted);font-size:11px;margin-top:3px; }
+    .pill { border:1px solid #35527d;background:#142541;color:#9dd9ff;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:700;white-space:nowrap; }
+    .hero { border:1px solid var(--line);background:linear-gradient(150deg,#152744,#10182a 75%);border-radius:22px;padding:20px 18px;margin-bottom:16px;box-shadow:0 18px 45px #0003; }
+    .eyebrow { color:#79caff;font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase; }
+    h1 { font-size:25px;line-height:1.15;margin:8px 0 7px;letter-spacing:-.04em; }
+    .sub { color:var(--muted);font-size:13px;line-height:1.5;margin:0; }
+    .rule { display:flex;align-items:center;gap:8px;margin-top:15px;color:#c9d7ed;font-size:11px; }
+    .rule span { width:7px;height:7px;border-radius:50%;background:#54d6a2;box-shadow:0 0 10px #54d6a2; }
+    .section-head { display:flex;justify-content:space-between;align-items:center;margin:20px 2px 11px; }
+    .section-head strong { font-size:13px;letter-spacing:.04em; }
+    .section-head small { color:var(--muted);font-size:11px; }
+    .grid { display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px; }
+    .number { border:1px solid #2b3c5b;background:linear-gradient(160deg,#1b2b47,#121d32);color:#eaf3ff;border-radius:12px;min-height:49px;font-size:15px;font-weight:800;box-shadow:inset 0 1px #ffffff0b,0 5px 12px #0002;transition:transform .12s,border-color .12s,background .12s; }
+    .number:active { transform:scale(.95); }
+    .number:disabled { opacity:.45; }
+    .number.selected { background:linear-gradient(145deg,#267df5,#4c63e7);border-color:#8ac8ff;color:white;box-shadow:0 0 0 2px #62b9ff33,0 8px 20px #2478ee55; }
+    .notice { margin-top:15px;border:1px solid #31435f;background:#111b2d;border-radius:14px;padding:12px 13px;color:#aebdd4;font-size:11px;line-height:1.5; }
+    .notice b { color:#e6f2ff; }
+    .status { display:none;margin-top:14px;padding:14px;border-radius:14px;background:#10352f;border:1px solid #276e5b;color:#a9f3d7;font-size:13px;line-height:1.5; }
+    .status.error { background:#3a1c29;border-color:#7b344d;color:#ffc2d1; }
+    .footer { text-align:center;color:#71829f;font-size:10px;margin-top:18px; }
+    @media(max-width:360px){.grid{gap:6px}.number{min-height:44px;border-radius:10px}.hero{padding:17px 15px}h1{font-size:22px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div class="brand"><div class="logo">🎲</div><div><strong>TEBAKDADU</strong><small>ARENA • MINI APP</small></div></div>
+      <div class="pill" id="roundPill">GAME —</div>
+    </header>
+    <section class="hero">
+      <div class="eyebrow">PILIH ANGKA KAMU</div>
+      <h1>Tentukan pilihan<br>angka 1–54</h1>
+      <p class="sub" id="hello">Pilih satu angka untuk ronde yang sedang berlangsung.</p>
+      <div class="rule"><span></span> 1 akun Telegram • 1 pilihan • tidak bisa diganti</div>
+    </section>
+    <div class="section-head"><strong>DAFTAR ANGKA</strong><small>Ketuk satu angka untuk mengunci</small></div>
+    <section class="grid" id="numberGrid" aria-label="Pilihan angka"></section>
+    <div class="notice"><b>Perhatian:</b> Setelah angka ditekan, pilihan langsung dikirim ke bot dan dikunci. Pastikan angka yang dipilih sudah benar.</div>
+    <div class="status" id="status" role="status"></div>
+    <div class="footer">TEBAKDADU • Setiap grup memiliki ronde terpisah</div>
+  </main>
+<script>
+(() => {
+  const tg = window.Telegram?.WebApp;
+  const params = new URLSearchParams(location.search);
+  const chatId = params.get('chat');
+  const roundId = Number(params.get('round'));
+  const nonce = params.get('nonce');
+  const grid = document.getElementById('numberGrid');
+  const statusBox = document.getElementById('status');
+  let locked = false;
+
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    try { tg.setHeaderColor('#0b1020'); tg.setBackgroundColor('#090e1b'); } catch (_) {}
+    const firstName = tg.initDataUnsafe?.user?.first_name;
+    if (firstName) document.getElementById('hello').textContent = `Halo ${firstName}, pilih satu angka untuk GAME ${roundId || '—'}.`;
+  } else {
+    document.getElementById('hello').textContent = 'Pratinjau browser. Untuk mengirim pilihan, buka Mini App dari Telegram.';
+  }
+  document.getElementById('roundPill').textContent = `GAME ${Number.isFinite(roundId) && roundId > 0 ? roundId : '—'}`;
+
+  function showStatus(message, isError=false) {
+    statusBox.textContent = message;
+    statusBox.className = isError ? 'status error' : 'status';
+    statusBox.style.display = 'block';
+  }
+
+  function choose(number, button) {
+    if (locked) return;
+    if (!tg || !chatId || !roundId || !nonce) {
+      showStatus('Data game tidak lengkap. Buka tombol Mini App terbaru dari grup Telegram.', true);
+      return;
+    }
+    locked = true;
+    document.querySelectorAll('.number').forEach(el => el.disabled = true);
+    button.classList.add('selected');
+    showStatus(`Mengunci angka ${number}...`);
+    try {
+      tg.sendData(JSON.stringify({ chatId, roundId, nonce, number }));
+    } catch (err) {
+      locked = false;
+      document.querySelectorAll('.number').forEach(el => el.disabled = false);
+      button.classList.remove('selected');
+      showStatus('Gagal mengirim pilihan. Tutup Mini App dan buka kembali dari grup.', true);
+    }
+  }
+
+  for (let n=1; n<=54; n++) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'number';
+    button.textContent = n;
+    button.setAttribute('aria-label', `Pilih angka ${n}`);
+    button.addEventListener('click', () => choose(n, button));
+    grid.appendChild(button);
+  }
+})();
+</script>
+</body>
+</html>
